@@ -129,6 +129,14 @@ impl OpenGl {
 		program
 	}
 
+	pub fn set_color_uniform(&self, color: Color) {
+		unsafe {
+			let uniform = self.gl.get_uniform_location(self.program, "Color");
+			self.gl
+				.uniform_4_f32(uniform.as_ref(), color.r, color.g, color.b, color.a);
+		}
+	}
+
 	pub fn draw_rectangle(&self, pos: Vec2, dim: Vec2) {
 		// The rectangle we use to draw, self.draw_rect, spans from (OpenGL Normalized Coordinates)
 		// -1,1 to 1,-1. That means any scale we appply via our little uniform will be 2x, as it

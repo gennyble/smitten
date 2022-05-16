@@ -2,12 +2,15 @@ mod color;
 mod gl;
 mod vec2;
 
-use std::sync::RwLock;
+use std::{
+	collections::{HashMap, HashSet},
+	sync::RwLock,
+};
 
 use gl::{OpenGl, Transform};
 use glutin::{
 	dpi::PhysicalSize,
-	event::{Event, WindowEvent},
+	event::{ElementState, Event, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
 	platform::{run_return::EventLoopExtRunReturn, unix::WindowBuilderExtUnix},
 	window::{Window, WindowBuilder},
@@ -17,17 +20,24 @@ use glutin::{
 pub use color::Color;
 pub use vec2::Vec2;
 
+pub use glutin::event::VirtualKeyCode;
+
 type PixelSize = PhysicalSize<u32>;
+
+//TODO: Custom drop that frees resources
 
 pub struct Smitten {
 	context: ContextWrapper<PossiblyCurrent, Window>,
 	event_loop: EventLoop<()>,
 	gl: OpenGl,
+
+	down_keys: HashSet<VirtualKeyCode>,
+	down_scancode: HashSet<u32>,
 }
 
 impl Smitten {
 	/// Make a new window and set everyththing up
-	pub fn new<P, T>(size: P, title: T) -> Smitten
+	pub fn new<P, T>(size: P, title: T, mur: u32) -> Smitten
 	where
 		P: Into<PixelSize>,
 		T: Into<String>,
@@ -50,27 +60,56 @@ impl Smitten {
 
 		//TODO: Add saftey note
 		let context = unsafe { wc.make_current().unwrap() };
-		let gl = OpenGl::new(&context, Transform::new(size, 24));
+		let mut gl = OpenGl::new(&context, Transform::new(size, mur));
+
+		gl.clear_color(Color::rgb(0.0, 0.0, 0.0));
 
 		Smitten {
 			context,
 			event_loop: el,
 			gl,
+			down_keys: HashSet::new(),
+			down_scancode: HashSet::new(),
 		}
 	}
 
-	pub fn events(&mut self) {
+	pub fn events(&mut self) -> Vec<SmittenEvent> {
 		let mut events = vec![];
 		self.event_loop
 			.run_return(|event, _, flow| Self::add_event(&mut events, event, flow));
 
 		for event in &events {
 			match event {
-				SmittenEvent::WindowResized(size) => self.gl.resized(size.width, size.height),
+				SmittenEvent::WindowResized(size) => {
+					println!("Did resize");
+					self.context.resize(*size);
+					self.gl.resized(size.width, size.height)
+				}
+				SmittenEvent::Keydown { scancode, key } => {
+					self.down_scancode.insert(*scancode);
+
+					if let Some(key) = key {
+						self.down_keys.insert(*key);
+					}
+				}
+				SmittenEvent::Keyup { scancode, key } => {
+					self.down_scancode.remove(scancode);
+
+					if let Some(key) = key {
+						self.down_keys.remove(key);
+					}
+				}
 			}
 		}
 
+		events
+	}
+
+	pub fn clear(&self) {
 		self.gl.clear();
+	}
+
+	pub fn swap(&self) {
 		self.context.swap_buffers().unwrap()
 	}
 
@@ -80,6 +119,16 @@ impl Smitten {
 		match event {
 			Event::WindowEvent { event, .. } => match event {
 				WindowEvent::Resized(phys) => events.push(SmittenEvent::WindowResized(phys)),
+				WindowEvent::KeyboardInput { input, .. } => match input.state {
+					ElementState::Pressed => events.push(SmittenEvent::Keydown {
+						scancode: input.scancode,
+						key: input.virtual_keycode,
+					}),
+					ElementState::Released => events.push(SmittenEvent::Keyup {
+						scancode: input.scancode,
+						key: input.virtual_keycode,
+					}),
+				},
 				_ => (),
 			},
 			Event::DeviceEvent { event, .. } => match event {
@@ -91,8 +140,58 @@ impl Smitten {
 			_ => (),
 		}
 	}
+
+	// Draw a rectangle at `pos` murs (center) which is `dim` murs in dimension.
+	pub fn rect<P, D, R>(&self, pos: P, dim: D, draw: R)
+	where
+		P: Into<Vec2>,
+		D: Into<Vec2>,
+		R: Into<Draw>,
+	{
+		match draw.into() {
+			Draw::Color(c) => self.gl.set_color_uniform(c),
+			Draw::Texture(_tid) => todo!(),
+		}
+
+		self.gl.draw_rectangle(pos.into(), dim.into())
+	}
+
+	pub fn is_key_down(&self, key: VirtualKeyCode) -> bool {
+		self.down_keys.contains(&key)
+	}
+
+	pub fn is_scancode_down(&self, scancode: u32) -> bool {
+		self.down_scancode.contains(&scancode)
+	}
 }
 
-enum SmittenEvent {
+pub enum SmittenEvent {
 	WindowResized(PixelSize),
+	Keydown {
+		scancode: u32,
+		key: Option<VirtualKeyCode>,
+	},
+	Keyup {
+		scancode: u32,
+		key: Option<VirtualKeyCode>,
+	},
+}
+
+type TextureId = u32;
+
+pub enum Draw {
+	Color(Color),
+	Texture(TextureId),
+}
+
+impl Into<Draw> for Color {
+	fn into(self) -> Draw {
+		Draw::Color(self)
+	}
+}
+
+impl Into<Draw> for TextureId {
+	fn into(self) -> Draw {
+		Draw::Texture(self)
+	}
 }
