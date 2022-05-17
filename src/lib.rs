@@ -3,11 +3,14 @@ mod gl;
 mod vec2;
 
 use std::{
+	cell::Cell,
 	collections::{HashMap, HashSet},
+	path::Path,
 	sync::RwLock,
 };
 
-use gl::{OpenGl, Transform};
+use gl::{OpenGl, Texture, Transform};
+use glow::HasContext;
 use glutin::{
 	dpi::PhysicalSize,
 	event::{ElementState, Event, WindowEvent},
@@ -22,14 +25,21 @@ pub use vec2::Vec2;
 
 pub use glutin::event::VirtualKeyCode;
 
-type PixelSize = PhysicalSize<u32>;
+pub type PixelSize = PhysicalSize<u32>;
+pub type TextureId = u32;
 
 //TODO: Custom drop that frees resources
 
 pub struct Smitten {
 	context: ContextWrapper<PossiblyCurrent, Window>,
 	event_loop: EventLoop<()>,
+
 	gl: OpenGl,
+	current_color: Cell<Color>,
+	current_texture: Cell<Option<TextureId>>,
+
+	next_textureid: u32,
+	textures: HashMap<TextureId, Texture>,
 
 	down_keys: HashSet<VirtualKeyCode>,
 	down_scancode: HashSet<u32>,
@@ -68,6 +78,10 @@ impl Smitten {
 			context,
 			event_loop: el,
 			gl,
+			current_color: Cell::new(Color::rgb(0.0, 0.0, 0.0)),
+			current_texture: Cell::new(None),
+			next_textureid: 0,
+			textures: HashMap::new(),
 			down_keys: HashSet::new(),
 			down_scancode: HashSet::new(),
 		}
@@ -81,7 +95,6 @@ impl Smitten {
 		for event in &events {
 			match event {
 				SmittenEvent::WindowResized(size) => {
-					println!("Did resize");
 					self.context.resize(*size);
 					self.gl.resized(size.width, size.height)
 				}
@@ -141,6 +154,16 @@ impl Smitten {
 		}
 	}
 
+	pub fn make_texture<P: AsRef<Path>>(&mut self, path: P) -> TextureId {
+		let tex = Texture::from_file(&self.gl, path);
+		let id = self.next_textureid;
+
+		self.textures.insert(id, tex);
+		self.next_textureid += 1;
+
+		id
+	}
+
 	// Draw a rectangle at `pos` murs (center) which is `dim` murs in dimension.
 	pub fn rect<P, D, R>(&self, pos: P, dim: D, draw: R)
 	where
@@ -149,11 +172,31 @@ impl Smitten {
 		R: Into<Draw>,
 	{
 		match draw.into() {
-			Draw::Color(c) => self.gl.set_color_uniform(c),
-			Draw::Texture(_tid) => todo!(),
+			Draw::Color(c) => {
+				if self.current_color.get() != c {
+					self.gl.set_color_uniform(c);
+					self.current_color.set(c);
+					println!("Colour set!");
+				}
+			}
+			Draw::Texture(tid) => match self.current_texture.get() {
+				Some(cur) if cur == tid => (),
+				Some(_) => self.bind_texture(tid),
+				None => self.bind_texture(tid),
+			},
 		}
 
 		self.gl.draw_rectangle(pos.into(), dim.into())
+	}
+
+	fn bind_texture(&self, tid: TextureId) {
+		match self.textures.get(&tid) {
+			Some(tex) => {
+				unsafe { tex.bind(&self.gl) }
+				self.current_texture.set(Some(tid));
+			}
+			None => todo!(),
+		}
 	}
 
 	pub fn is_key_down(&self, key: VirtualKeyCode) -> bool {
@@ -176,8 +219,6 @@ pub enum SmittenEvent {
 		key: Option<VirtualKeyCode>,
 	},
 }
-
-type TextureId = u32;
 
 pub enum Draw {
 	Color(Color),
