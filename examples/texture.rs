@@ -1,4 +1,4 @@
-use smitten::{self, Color, Smitten, VirtualKeyCode};
+use smitten::{self, Smitten, VirtualKeyCode};
 
 fn main() {
 	let mut smitty = Smitten::new((720, 480), "Square", 24);
