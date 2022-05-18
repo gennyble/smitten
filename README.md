@@ -9,5 +9,5 @@ Made in tandem with [notsure][notsure] and [fluffy-parakeet][fluffy-parakeet], t
 The commit messages might be a bit chaotic. This repository is not meant for public consumption but remains public for those who'd like to gaze inside.
 
 Currently Featuring
-- Drawing of coloured rectangles
+- Drawing of coloured/textured rectangles!
 - Keyboard input!

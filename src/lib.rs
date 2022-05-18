@@ -26,7 +26,9 @@ pub use vec2::Vec2;
 pub use glutin::event::VirtualKeyCode;
 
 pub type PixelSize = PhysicalSize<u32>;
-pub type TextureId = u32;
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct TextureId(u32);
 
 //TODO: Custom drop that frees resources
 
@@ -38,7 +40,7 @@ pub struct Smitten {
 	current_color: Cell<Color>,
 	current_texture: Cell<Option<TextureId>>,
 
-	next_textureid: u32,
+	next_textureid: TextureId,
 	textures: HashMap<TextureId, Texture>,
 
 	down_keys: HashSet<VirtualKeyCode>,
@@ -80,7 +82,7 @@ impl Smitten {
 			gl,
 			current_color: Cell::new(Color::rgb(0.0, 0.0, 0.0)),
 			current_texture: Cell::new(None),
-			next_textureid: 0,
+			next_textureid: TextureId(0),
 			textures: HashMap::new(),
 			down_keys: HashSet::new(),
 			down_scancode: HashSet::new(),
@@ -159,7 +161,7 @@ impl Smitten {
 		let id = self.next_textureid;
 
 		self.textures.insert(id, tex);
-		self.next_textureid += 1;
+		self.next_textureid.0 += 1;
 
 		id
 	}
@@ -173,6 +175,11 @@ impl Smitten {
 	{
 		match draw.into() {
 			Draw::Color(c) => {
+				if self.current_texture.get().is_some() {
+					unsafe { self.gl.gl().bind_texture(glow::TEXTURE_2D, None) };
+					self.current_texture.set(None);
+				}
+
 				if self.current_color.get() != c {
 					self.gl.set_color_uniform(c);
 					self.current_color.set(c);
@@ -220,6 +227,7 @@ pub enum SmittenEvent {
 	},
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum Draw {
 	Color(Color),
 	Texture(TextureId),

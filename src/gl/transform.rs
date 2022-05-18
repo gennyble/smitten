@@ -37,7 +37,7 @@ impl Transform {
 	}
 
 	pub fn vec_to_opengl(&self, mut vec: Vec2) -> Vec2 {
-		vec.y *= -1.0;
+		//vec.y *= -1.0;
 		(vec * self.mur_size) / (self.screen_vec / 2)
 	}
 }

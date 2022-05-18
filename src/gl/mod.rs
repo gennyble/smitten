@@ -45,8 +45,7 @@ impl OpenGl {
         };
 
 		//TODO: This will only work in the smitten repo. Maybe we try to open them and fallback to ours if we fail?
-		let program =
-			unsafe { Self::create_program(&gl, "shaders/texture.vert", "shaders/texture.frag") };
+		let program = unsafe { Self::create_program(&gl) };
 
 		unsafe {
 			gl.use_program(Some(program));
@@ -83,21 +82,17 @@ impl OpenGl {
 			.resized(glutin::dpi::PhysicalSize { width, height })
 	}
 
-	unsafe fn create_program<V: AsRef<FilePath>, F: AsRef<FilePath>>(
-		gl: &glow::Context,
-		vertex_path: V,
-		fragment_path: F,
-	) -> Program {
+	unsafe fn create_program(gl: &glow::Context) -> Program {
 		let program = gl.create_program().expect("Failed to create program");
 
 		let shader_soruces = [
 			(
 				glow::VERTEX_SHADER,
-				std::fs::read_to_string(vertex_path).unwrap(),
+				include_str!("../../shaders/texture.vert"),
 			),
 			(
 				glow::FRAGMENT_SHADER,
-				std::fs::read_to_string(fragment_path).unwrap(),
+				include_str!("../../shaders/texture.frag"),
 			),
 		];
 
