@@ -248,14 +248,14 @@ pub enum Draw {
 	Texture(TextureId),
 }
 
-impl Into<Draw> for Color {
-	fn into(self) -> Draw {
-		Draw::Color(self)
+impl From<Color> for Draw {
+	fn from(clr: Color) -> Draw {
+		Draw::Color(clr)
 	}
 }
 
-impl Into<Draw> for TextureId {
-	fn into(self) -> Draw {
-		Draw::Texture(self)
+impl From<TextureId> for Draw {
+	fn from(tid: TextureId) -> Draw {
+		Draw::Texture(tid)
 	}
 }
