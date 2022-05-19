@@ -9,7 +9,7 @@ use std::{
 	sync::RwLock,
 };
 
-use gl::{OpenGl, Texture, Transform};
+use gl::{OpenGl, Texture, TextureColoring, Transform};
 use glow::HasContext;
 use glutin::{
 	dpi::PhysicalSize,
@@ -39,6 +39,7 @@ pub struct Smitten {
 	gl: OpenGl,
 	current_color: Cell<Color>,
 	current_texture: Cell<Option<TextureId>>,
+	texture_coloring: TextureColoring,
 
 	next_textureid: TextureId,
 	textures: HashMap<TextureId, Texture>,
@@ -75,6 +76,7 @@ impl Smitten {
 		let mut gl = OpenGl::new(&context, Transform::new(size, mur));
 
 		gl.clear_color(Color::rgb(0.0, 0.0, 0.0));
+		gl.set_texture_coloring_uniform(TextureColoring::Texture);
 
 		Smitten {
 			context,
@@ -82,6 +84,7 @@ impl Smitten {
 			gl,
 			current_color: Cell::new(Color::rgb(0.0, 0.0, 0.0)),
 			current_texture: Cell::new(None),
+			texture_coloring: TextureColoring::Texture,
 			next_textureid: TextureId(0),
 			textures: HashMap::new(),
 			down_keys: HashSet::new(),
@@ -126,6 +129,17 @@ impl Smitten {
 
 	pub fn swap(&self) {
 		self.context.swap_buffers().unwrap()
+	}
+
+	pub fn texture_coloring(&mut self, flag: bool) {
+		let value = if flag {
+			TextureColoring::MixTexture
+		} else {
+			TextureColoring::Texture
+		};
+
+		self.texture_coloring = value;
+		self.gl.set_texture_coloring_uniform(value);
 	}
 
 	fn add_event(events: &mut Vec<SmittenEvent>, event: Event<()>, flow: &mut ControlFlow) {
@@ -173,17 +187,14 @@ impl Smitten {
 		D: Into<Vec2>,
 		R: Into<Draw>,
 	{
-		match draw.into() {
+		let draw = draw.into();
+		match draw {
 			Draw::Color(c) => {
-				if self.current_texture.get().is_some() {
-					unsafe { self.gl.gl().bind_texture(glow::TEXTURE_2D, None) };
-					self.current_texture.set(None);
-				}
+				self.gl.set_texture_coloring_uniform(TextureColoring::Color);
 
 				if self.current_color.get() != c {
 					self.gl.set_color_uniform(c);
 					self.current_color.set(c);
-					println!("Colour set!");
 				}
 			}
 			Draw::Texture(tid) => match self.current_texture.get() {
@@ -193,7 +204,11 @@ impl Smitten {
 			},
 		}
 
-		self.gl.draw_rectangle(pos.into(), dim.into())
+		self.gl.draw_rectangle(pos.into(), dim.into());
+
+		if let Draw::Color(_) = draw {
+			self.gl.set_texture_coloring_uniform(self.texture_coloring);
+		}
 	}
 
 	fn bind_texture(&self, tid: TextureId) {

@@ -132,6 +132,21 @@ impl OpenGl {
 		}
 	}
 
+	//TODO: gen- Make this an enum
+	pub fn set_texture_coloring_uniform(&self, value: TextureColoring) {
+		let uniform = unsafe { self.gl.get_uniform_location(self.program, "ColorTexture") };
+
+		unsafe {
+			let ival = match value {
+				TextureColoring::MixTexture => 1,
+				TextureColoring::Texture => 0,
+				TextureColoring::Color => 2,
+			};
+
+			self.gl.uniform_1_i32(uniform.as_ref(), ival);
+		}
+	}
+
 	pub fn draw_rectangle(&self, pos: Vec2, dim: Vec2) {
 		// The rectangle we use to draw, self.draw_rect, spans from (OpenGL Normalized Coordinates)
 		// -1,1 to 1,-1. That means any scale we appply via our little uniform will be 2x, as it
@@ -179,4 +194,11 @@ impl Drop for OpenGl {
 			self.draw_rect.delete(&self.gl);
 		}
 	}
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum TextureColoring {
+	MixTexture,
+	Texture,
+	Color,
 }
