@@ -21,6 +21,7 @@ use glutin::{
 };
 
 pub use color::Color;
+pub use gl::SignedDistance;
 pub use vec2::Vec2;
 
 pub use glutin::event::VirtualKeyCode;
@@ -209,6 +210,10 @@ impl Smitten {
 		if let Draw::Color(_) = draw {
 			self.gl.set_texture_coloring_uniform(self.texture_coloring);
 		}
+	}
+
+	pub fn sdf(&self, sdf: SignedDistance) {
+		self.gl.draw_sdf(sdf)
 	}
 
 	fn bind_texture(&self, tid: TextureId) {

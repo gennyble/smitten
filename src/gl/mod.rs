@@ -17,6 +17,7 @@ pub struct OpenGl {
 	gl: Rc<glow::Context>,
 	transform: Transform,
 	program: Program,
+	sdf: Program,
 	clear_color: Color,
 	draw_rect: Rectangle,
 }
@@ -44,8 +45,21 @@ impl OpenGl {
             gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
         };
 
-		//TODO: This will only work in the smitten repo. Maybe we try to open them and fallback to ours if we fail?
-		let program = unsafe { Self::create_program(&gl) };
+		let program = unsafe {
+			Self::create_program(
+				&gl,
+				include_str!("../../shaders/texture.vert"),
+				include_str!("../../shaders/texture.frag"),
+			)
+		};
+
+		let sdf = unsafe {
+			Self::create_program(
+				&gl,
+				include_str!("../../shaders/sdf.vert"),
+				include_str!("../../shaders/sdf.frag"),
+			)
+		};
 
 		unsafe {
 			gl.use_program(Some(program));
@@ -57,6 +71,7 @@ impl OpenGl {
 			gl: Rc::new(gl),
 			transform,
 			program,
+			sdf,
 			clear_color: Color::rgba(0.0, 0.0, 0.0, 1.0),
 			draw_rect,
 		}
@@ -82,18 +97,16 @@ impl OpenGl {
 			.resized(glutin::dpi::PhysicalSize { width, height })
 	}
 
-	unsafe fn create_program(gl: &glow::Context) -> Program {
+	unsafe fn create_program(
+		gl: &glow::Context,
+		vertex_source: &str,
+		fragment_source: &str,
+	) -> Program {
 		let program = gl.create_program().expect("Failed to create program");
 
 		let shader_soruces = [
-			(
-				glow::VERTEX_SHADER,
-				include_str!("../../shaders/texture.vert"),
-			),
-			(
-				glow::FRAGMENT_SHADER,
-				include_str!("../../shaders/texture.frag"),
-			),
+			(glow::VERTEX_SHADER, vertex_source),
+			(glow::FRAGMENT_SHADER, fragment_source),
 		];
 
 		let mut shaders = vec![];
@@ -156,7 +169,7 @@ impl OpenGl {
 		let gl_dim = self.transform.vec_to_opengl(dim / 2);
 
 		unsafe {
-			//self.gl.use_program(Some(self.program));
+			self.gl.use_program(Some(self.program));
 
 			let uniform_position = self.gl.get_uniform_location(self.program, "WorldPosition");
 			let uniform_scale = self.gl.get_uniform_location(self.program, "Scale");
@@ -171,9 +184,85 @@ impl OpenGl {
 		}
 	}
 
+	pub fn draw_sdf(&self, sdf: SignedDistance) {
+		match sdf {
+			SignedDistance::Circle {
+				center,
+				radius,
+				color,
+			} => unsafe {
+				self.gl.use_program(Some(self.sdf));
+
+				let uniform_color = self.gl.get_uniform_location(self.sdf, "Color");
+				let uniform_pointpair = self.gl.get_uniform_location(self.sdf, "PointPair");
+				let uniform_drawmethod = self.gl.get_uniform_location(self.sdf, "DrawMethod");
+
+				let pixel_center = self.transform.vec_to_pixels(center);
+				dbg!(pixel_center);
+
+				self.gl
+					.uniform_4_f32(uniform_color.as_ref(), color.r, color.g, color.b, color.a);
+				self.gl.uniform_4_f32(
+					uniform_pointpair.as_ref(),
+					pixel_center.x,
+					pixel_center.y,
+					radius * self.transform.mur_size as f32,
+					0.0,
+				);
+				self.gl.uniform_1_i32(uniform_drawmethod.as_ref(), 1);
+			},
+			SignedDistance::LineSegment {
+				start,
+				end,
+				thickness,
+				color,
+			} => unsafe {
+				self.gl.use_program(Some(self.sdf));
+
+				let uniform_color = self.gl.get_uniform_location(self.sdf, "Color");
+				let uniform_pointpair = self.gl.get_uniform_location(self.sdf, "PointPair");
+				let uniform_parameters = self.gl.get_uniform_location(self.sdf, "Parameters");
+				let uniform_drawmethod = self.gl.get_uniform_location(self.sdf, "DrawMethod");
+
+				let pixel_start = self.transform.vec_to_pixels(start);
+				let pixel_end = self.transform.vec_to_pixels(end);
+
+				self.gl
+					.uniform_4_f32(uniform_color.as_ref(), color.r, color.g, color.b, color.a);
+				self.gl.uniform_4_f32(
+					uniform_pointpair.as_ref(),
+					pixel_start.x,
+					pixel_start.y,
+					pixel_end.x,
+					pixel_end.y,
+				);
+				self.gl
+					.uniform_4_f32(uniform_parameters.as_ref(), thickness as f32, 0.0, 0.0, 0.0);
+				self.gl.uniform_1_i32(uniform_drawmethod.as_ref(), 2);
+			},
+		}
+
+		let (pos, dim) = sdf.get_bounds(&self.transform);
+		let gl_pos = self.transform.vec_to_opengl(pos);
+		let gl_dim = self.transform.vec_to_opengl(dim / 2);
+
+		unsafe {
+			let uniform_position = self.gl.get_uniform_location(self.sdf, "WorldPosition");
+			let uniform_scale = self.gl.get_uniform_location(self.sdf, "Scale");
+			self.gl
+				.uniform_2_f32(uniform_position.as_ref(), gl_pos.x, gl_pos.y);
+			self.gl
+				.uniform_2_f32(uniform_scale.as_ref(), gl_dim.x, gl_dim.y);
+
+			self.draw_rect.bind(&self.gl);
+			self.gl
+				.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_BYTE, 0);
+		}
+	}
+
 	pub fn draw_fullscreen(&self) {
 		unsafe {
-			//self.gl.use_program(Some(self.program));
+			self.gl.use_program(Some(self.program));
 
 			let uniform_position = self.gl.get_uniform_location(self.program, "WorldPosition");
 			let uniform_scale = self.gl.get_uniform_location(self.program, "Scale");
@@ -201,4 +290,66 @@ pub enum TextureColoring {
 	MixTexture,
 	Texture,
 	Color,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum SignedDistance {
+	Circle {
+		center: Vec2,
+		radius: f32,
+		color: Color,
+	},
+	LineSegment {
+		start: Vec2,
+		end: Vec2,
+		thickness: u32,
+		color: Color,
+	},
+}
+
+impl SignedDistance {
+	pub fn get_bounds(&self, trns: &Transform) -> (Vec2, Vec2) {
+		match self {
+			SignedDistance::Circle { center, radius, .. } => {
+				(*center, Vec2::new(*radius, *radius) * 2)
+			}
+			SignedDistance::LineSegment {
+				start,
+				end,
+				thickness,
+				..
+			} => {
+				let mut rstart = Vec2::ZERO;
+				let mut rend = Vec2::ZERO;
+
+				if start.x < end.x {
+					rstart.x = start.x;
+					rend.x = end.x;
+				} else {
+					rstart.x = end.x;
+					rend.x = start.x;
+				}
+
+				if start.y < end.y {
+					rstart.y = start.y;
+					rend.y = end.y;
+				} else {
+					rstart.y = end.y;
+					rend.y = start.y;
+				}
+
+				let dim = rend - rstart;
+				let hdim = dim.abs() / 2;
+
+				(
+					rstart + hdim,
+					hdim * 2
+						+ Vec2::new(
+							trns.pixels_to_mur(*thickness),
+							trns.pixels_to_mur(*thickness),
+						) * 3,
+				)
+			}
+		}
+	}
 }

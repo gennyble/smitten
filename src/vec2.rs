@@ -1,5 +1,5 @@
 use core::fmt;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
 use glutin::dpi::PhysicalSize;
 
@@ -10,6 +10,8 @@ pub struct Vec2 {
 }
 
 impl Vec2 {
+	pub const ZERO: Vec2 = Vec2 { x: 0.0, y: 0.0 };
+
 	pub fn new(x: f32, y: f32) -> Self {
 		Self { x, y }
 	}
@@ -19,6 +21,13 @@ impl Vec2 {
 		Self {
 			x: (self.x * 2.0) / other.x - 1.0,
 			y: ((other.y - self.y) * 2.0) / other.y - 1.0,
+		}
+	}
+
+	pub fn abs(self) -> Self {
+		Self {
+			x: self.x.abs(),
+			y: self.y.abs(),
 		}
 	}
 }
@@ -34,6 +43,13 @@ impl Add for Vec2 {
 	}
 }
 
+impl AddAssign for Vec2 {
+	fn add_assign(&mut self, rhs: Self) {
+		self.x += rhs.x;
+		self.y += rhs.y;
+	}
+}
+
 impl Sub for Vec2 {
 	type Output = Self;
 
@@ -42,6 +58,13 @@ impl Sub for Vec2 {
 			x: self.x - rhs.x,
 			y: self.y - rhs.y,
 		}
+	}
+}
+
+impl SubAssign for Vec2 {
+	fn sub_assign(&mut self, rhs: Self) {
+		self.x -= rhs.x;
+		self.y -= rhs.y;
 	}
 }
 
@@ -97,6 +120,15 @@ impl Div for Vec2 {
 impl From<(f32, f32)> for Vec2 {
 	fn from(t: (f32, f32)) -> Self {
 		Self { x: t.0, y: t.1 }
+	}
+}
+
+impl From<(i32, i32)> for Vec2 {
+	fn from(t: (i32, i32)) -> Self {
+		Self {
+			x: t.0 as f32,
+			y: t.1 as f32,
+		}
 	}
 }
 

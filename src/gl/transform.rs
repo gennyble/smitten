@@ -13,7 +13,7 @@ pub struct Transform {
 	screen_vec: Vec2,
 	mur_dimensions: Vec2,
 	mur_half_dimensions: Vec2,
-	mur_size: u32,
+	pub mur_size: u32,
 }
 
 impl Transform {
@@ -39,5 +39,13 @@ impl Transform {
 	pub fn vec_to_opengl(&self, mut vec: Vec2) -> Vec2 {
 		//vec.y *= -1.0;
 		(vec * self.mur_size) / (self.screen_vec / 2)
+	}
+
+	pub fn vec_to_pixels(&self, vec: Vec2) -> Vec2 {
+		vec * self.mur_size + self.screen_vec / 2
+	}
+
+	pub fn pixels_to_mur(&self, pixels: u32) -> f32 {
+		pixels as f32 / self.mur_size as f32
 	}
 }
