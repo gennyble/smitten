@@ -198,7 +198,6 @@ impl OpenGl {
 				let uniform_drawmethod = self.gl.get_uniform_location(self.sdf, "DrawMethod");
 
 				let pixel_center = self.transform.vec_to_pixels(center);
-				dbg!(pixel_center);
 
 				self.gl
 					.uniform_4_f32(uniform_color.as_ref(), color.r, color.g, color.b, color.a);
