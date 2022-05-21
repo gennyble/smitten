@@ -11,3 +11,4 @@ The commit messages might be a bit chaotic. This repository is not meant for pub
 Currently Featuring
 - Drawing of coloured/textured rectangles!
 - Keyboard input!
+- SDF! Circles and line segments (thank you Aeva! <https://twitter.com/ladyaeva/status/1527550112133787649>)
