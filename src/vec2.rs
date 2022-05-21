@@ -16,7 +16,7 @@ impl Vec2 {
 		Self { x, y }
 	}
 
-	pub fn normalize<P: Into<Vec2>>(self, other: P) -> Self {
+	pub fn gl_normalize<P: Into<Vec2>>(self, other: P) -> Self {
 		let other = other.into();
 		Self {
 			x: (self.x * 2.0) / other.x - 1.0,
@@ -28,6 +28,15 @@ impl Vec2 {
 		Self {
 			x: self.x.abs(),
 			y: self.y.abs(),
+		}
+	}
+
+	pub fn normalize(&self) -> Self {
+		let max = self.x.max(self.y);
+
+		Self {
+			x: self.x / max,
+			y: self.y / max,
 		}
 	}
 }
