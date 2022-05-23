@@ -39,6 +39,10 @@ impl Vec2 {
 			y: self.y / max,
 		}
 	}
+
+	pub fn distance_with(&self, other: Vec2) -> f32 {
+		((other.x - self.x) * (other.x - self.x) + (other.y - self.y) * (other.y - self.y)).sqrt()
+	}
 }
 
 impl Add for Vec2 {
