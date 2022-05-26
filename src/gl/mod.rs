@@ -6,7 +6,11 @@ pub use rectangle::Rectangle;
 pub use texture::Texture;
 pub use transform::Transform;
 
-use std::{cell::RefCell, path::Path as FilePath, rc::Rc};
+use std::{
+	cell::{Cell, RefCell},
+	path::Path as FilePath,
+	rc::Rc,
+};
 
 use glow::{HasContext, Program};
 use glutin::{window::Window, ContextWrapper, PossiblyCurrent};
@@ -20,6 +24,7 @@ pub struct OpenGl {
 	sdf: Program,
 	clear_color: Color,
 	draw_rect: Rectangle,
+	bound_program: Cell<Program>,
 }
 
 impl OpenGl {
@@ -74,6 +79,7 @@ impl OpenGl {
 			sdf,
 			clear_color: Color::rgba(0.0, 0.0, 0.0, 1.0),
 			draw_rect,
+			bound_program: Cell::new(program),
 		}
 	}
 
@@ -138,6 +144,7 @@ impl OpenGl {
 	}
 
 	pub fn set_color_uniform(&self, color: Color) {
+		self.bind_program();
 		unsafe {
 			let uniform = self.gl.get_uniform_location(self.program, "Color");
 			self.gl
@@ -145,8 +152,27 @@ impl OpenGl {
 		}
 	}
 
+	pub fn bind_program(&self) {
+		if self.bound_program.get() != self.program {
+			unsafe {
+				self.gl.use_program(Some(self.program));
+			}
+			self.bound_program.set(self.program);
+		}
+	}
+
+	pub fn bind_sdf(&self) {
+		if self.bound_program.get() != self.sdf {
+			unsafe {
+				self.gl.use_program(Some(self.sdf));
+			}
+			self.bound_program.set(self.sdf);
+		}
+	}
+
 	//TODO: gen- Make this an enum
 	pub fn set_texture_coloring_uniform(&self, value: TextureColoring) {
+		self.bind_program();
 		let uniform = unsafe { self.gl.get_uniform_location(self.program, "ColorTexture") };
 
 		unsafe {
@@ -169,7 +195,7 @@ impl OpenGl {
 		let gl_dim = self.transform.vec_to_opengl(dim / 2);
 
 		unsafe {
-			self.gl.use_program(Some(self.program));
+			self.bind_program();
 
 			let uniform_position = self.gl.get_uniform_location(self.program, "WorldPosition");
 			let uniform_scale = self.gl.get_uniform_location(self.program, "Scale");
@@ -185,14 +211,14 @@ impl OpenGl {
 	}
 
 	pub fn draw_sdf(&self, sdf: SignedDistance) {
+		self.bind_sdf();
+
 		match sdf {
 			SignedDistance::Circle {
 				center,
 				radius,
 				color,
 			} => unsafe {
-				self.gl.use_program(Some(self.sdf));
-
 				let uniform_color = self.gl.get_uniform_location(self.sdf, "Color");
 				let uniform_pointpair = self.gl.get_uniform_location(self.sdf, "PointPair");
 				let uniform_drawmethod = self.gl.get_uniform_location(self.sdf, "DrawMethod");
@@ -205,7 +231,7 @@ impl OpenGl {
 					uniform_pointpair.as_ref(),
 					pixel_center.x,
 					pixel_center.y,
-					radius * self.transform.mur_size as f32,
+					radius as f32,
 					0.0,
 				);
 				self.gl.uniform_1_i32(uniform_drawmethod.as_ref(), 1);
@@ -216,8 +242,6 @@ impl OpenGl {
 				thickness,
 				color,
 			} => unsafe {
-				self.gl.use_program(Some(self.sdf));
-
 				let uniform_color = self.gl.get_uniform_location(self.sdf, "Color");
 				let uniform_pointpair = self.gl.get_uniform_location(self.sdf, "PointPair");
 				let uniform_parameters = self.gl.get_uniform_location(self.sdf, "Parameters");
@@ -261,7 +285,7 @@ impl OpenGl {
 
 	pub fn draw_fullscreen(&self) {
 		unsafe {
-			self.gl.use_program(Some(self.program));
+			self.bind_program();
 
 			let uniform_position = self.gl.get_uniform_location(self.program, "WorldPosition");
 			let uniform_scale = self.gl.get_uniform_location(self.program, "Scale");
@@ -279,6 +303,7 @@ impl Drop for OpenGl {
 	fn drop(&mut self) {
 		unsafe {
 			self.gl.delete_program(self.program);
+			self.gl.delete_program(self.sdf);
 			self.draw_rect.delete(&self.gl);
 		}
 	}
@@ -295,7 +320,7 @@ pub enum TextureColoring {
 pub enum SignedDistance {
 	Circle {
 		center: Vec2,
-		radius: f32,
+		radius: u32,
 		color: Color,
 	},
 	LineSegment {
@@ -307,10 +332,10 @@ pub enum SignedDistance {
 }
 
 impl SignedDistance {
-	pub fn get_bounds(&self, trns: &Transform) -> (Vec2, Vec2) {
+	fn get_bounds(&self, trns: &Transform) -> (Vec2, Vec2) {
 		match self {
 			SignedDistance::Circle { center, radius, .. } => {
-				(*center, Vec2::new(*radius, *radius) * 2)
+				(*center, Vec2::new(*radius as f32, *radius as f32) * 2)
 			}
 			SignedDistance::LineSegment {
 				start,
@@ -349,6 +374,32 @@ impl SignedDistance {
 						) * 3,
 				)
 			}
+		}
+	}
+
+	pub fn line_segment<S, E, C>(start: S, end: E, thickness: u32, color: C) -> SignedDistance
+	where
+		S: Into<Vec2>,
+		E: Into<Vec2>,
+		C: Into<Color>,
+	{
+		SignedDistance::LineSegment {
+			start: start.into(),
+			end: end.into(),
+			thickness,
+			color: color.into(),
+		}
+	}
+
+	pub fn circle<P, C>(center: P, radius: u32, color: C) -> SignedDistance
+	where
+		P: Into<Vec2>,
+		C: Into<Color>,
+	{
+		SignedDistance::Circle {
+			center: center.into(),
+			radius,
+			color: color.into(),
 		}
 	}
 }

@@ -194,7 +194,7 @@ impl Smitten {
 				self.gl.set_texture_coloring_uniform(TextureColoring::Color);
 
 				if self.current_color.get() != c {
-					self.gl.set_color_uniform(c);
+					self.gl.set_color_uniform(Color::rgb(0.5, 0.1, 0.3));
 					self.current_color.set(c);
 				}
 			}
@@ -217,6 +217,7 @@ impl Smitten {
 	}
 
 	fn bind_texture(&self, tid: TextureId) {
+		self.gl.bind_program();
 		match self.textures.get(&tid) {
 			Some(tex) => {
 				unsafe { tex.bind(&self.gl) }

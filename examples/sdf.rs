@@ -16,7 +16,7 @@ fn main() {
 
 		smitty.sdf(SignedDistance::Circle {
 			center: Vec2::new(-2.0, -2.0),
-			radius: 2.0,
+			radius: 48,
 			color: Color::rgb(0.1, 0.3, 0.7),
 		});
 
