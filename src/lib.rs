@@ -13,7 +13,7 @@ use gl::{OpenGl, Texture, TextureColoring, Transform};
 use glow::HasContext;
 use glutin::{
 	dpi::PhysicalSize,
-	event::{ElementState, Event, WindowEvent},
+	event::{ElementState, Event, VirtualKeyCode, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
 	platform::{run_return::EventLoopExtRunReturn, unix::WindowBuilderExtUnix},
 	window::{Window, WindowBuilder},
@@ -23,8 +23,6 @@ use glutin::{
 pub use color::Color;
 pub use gl::SignedDistance;
 pub use vec2::Vec2;
-
-pub use glutin::event::VirtualKeyCode;
 
 pub type PixelSize = PhysicalSize<u32>;
 
@@ -45,7 +43,7 @@ pub struct Smitten {
 	next_textureid: TextureId,
 	textures: HashMap<TextureId, Texture>,
 
-	down_keys: HashSet<VirtualKeyCode>,
+	down_keys: HashSet<Key>,
 	down_scancode: HashSet<u32>,
 }
 
@@ -107,15 +105,15 @@ impl Smitten {
 				SmittenEvent::Keydown { scancode, key } => {
 					self.down_scancode.insert(*scancode);
 
-					if let Some(key) = key {
-						self.down_keys.insert(*key);
+					if let Some(Ok(key)) = key.map(|v| v.try_into()) {
+						self.down_keys.insert(key);
 					}
 				}
 				SmittenEvent::Keyup { scancode, key } => {
 					self.down_scancode.remove(scancode);
 
-					if let Some(key) = key {
-						self.down_keys.remove(key);
+					if let Some(Ok(key)) = key.map(|v| v.try_into()) {
+						self.down_keys.remove(&key);
 					}
 				}
 			}
@@ -227,7 +225,7 @@ impl Smitten {
 		}
 	}
 
-	pub fn is_key_down(&self, key: VirtualKeyCode) -> bool {
+	pub fn is_key_down(&self, key: Key) -> bool {
 		self.down_keys.contains(&key)
 	}
 
@@ -263,5 +261,104 @@ impl From<Color> for Draw {
 impl From<TextureId> for Draw {
 	fn from(tid: TextureId) -> Draw {
 		Draw::Texture(tid)
+	}
+}
+
+#[rustfmt::skip]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Key {
+	A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+	Row1, Row2, Row3, Row4, Row5, Row6, Row7, Row8, Row9, Row0,
+	Escape,
+}
+
+impl From<Key> for VirtualKeyCode {
+	fn from(k: Key) -> Self {
+		match k {
+			Key::A => VirtualKeyCode::A,
+			Key::B => VirtualKeyCode::B,
+			Key::C => VirtualKeyCode::C,
+			Key::D => VirtualKeyCode::D,
+			Key::E => VirtualKeyCode::E,
+			Key::F => VirtualKeyCode::F,
+			Key::G => VirtualKeyCode::G,
+			Key::H => VirtualKeyCode::H,
+			Key::I => VirtualKeyCode::I,
+			Key::J => VirtualKeyCode::J,
+			Key::K => VirtualKeyCode::K,
+			Key::L => VirtualKeyCode::L,
+			Key::M => VirtualKeyCode::M,
+			Key::N => VirtualKeyCode::N,
+			Key::O => VirtualKeyCode::O,
+			Key::P => VirtualKeyCode::P,
+			Key::Q => VirtualKeyCode::Q,
+			Key::R => VirtualKeyCode::R,
+			Key::S => VirtualKeyCode::S,
+			Key::T => VirtualKeyCode::T,
+			Key::U => VirtualKeyCode::U,
+			Key::V => VirtualKeyCode::V,
+			Key::W => VirtualKeyCode::W,
+			Key::X => VirtualKeyCode::X,
+			Key::Y => VirtualKeyCode::Y,
+			Key::Z => VirtualKeyCode::Z,
+			Key::Row1 => VirtualKeyCode::Key1,
+			Key::Row2 => VirtualKeyCode::Key2,
+			Key::Row3 => VirtualKeyCode::Key3,
+			Key::Row4 => VirtualKeyCode::Key4,
+			Key::Row5 => VirtualKeyCode::Key5,
+			Key::Row6 => VirtualKeyCode::Key6,
+			Key::Row7 => VirtualKeyCode::Key7,
+			Key::Row8 => VirtualKeyCode::Key8,
+			Key::Row9 => VirtualKeyCode::Key9,
+			Key::Row0 => VirtualKeyCode::Key0,
+			Key::Escape => VirtualKeyCode::Escape,
+		}
+	}
+}
+
+impl TryFrom<VirtualKeyCode> for Key {
+	type Error = ();
+
+	fn try_from(v: VirtualKeyCode) -> Result<Self, Self::Error> {
+		match v {
+			VirtualKeyCode::A => Ok(Key::A),
+			VirtualKeyCode::B => Ok(Key::B),
+			VirtualKeyCode::C => Ok(Key::C),
+			VirtualKeyCode::D => Ok(Key::D),
+			VirtualKeyCode::E => Ok(Key::E),
+			VirtualKeyCode::F => Ok(Key::F),
+			VirtualKeyCode::G => Ok(Key::G),
+			VirtualKeyCode::H => Ok(Key::H),
+			VirtualKeyCode::I => Ok(Key::I),
+			VirtualKeyCode::J => Ok(Key::J),
+			VirtualKeyCode::K => Ok(Key::K),
+			VirtualKeyCode::L => Ok(Key::L),
+			VirtualKeyCode::M => Ok(Key::M),
+			VirtualKeyCode::N => Ok(Key::N),
+			VirtualKeyCode::O => Ok(Key::O),
+			VirtualKeyCode::P => Ok(Key::P),
+			VirtualKeyCode::Q => Ok(Key::Q),
+			VirtualKeyCode::R => Ok(Key::R),
+			VirtualKeyCode::S => Ok(Key::S),
+			VirtualKeyCode::T => Ok(Key::T),
+			VirtualKeyCode::U => Ok(Key::U),
+			VirtualKeyCode::V => Ok(Key::V),
+			VirtualKeyCode::W => Ok(Key::W),
+			VirtualKeyCode::X => Ok(Key::X),
+			VirtualKeyCode::Y => Ok(Key::Y),
+			VirtualKeyCode::Z => Ok(Key::Z),
+			VirtualKeyCode::Key1 => Ok(Key::Row1),
+			VirtualKeyCode::Key2 => Ok(Key::Row2),
+			VirtualKeyCode::Key3 => Ok(Key::Row3),
+			VirtualKeyCode::Key4 => Ok(Key::Row4),
+			VirtualKeyCode::Key5 => Ok(Key::Row5),
+			VirtualKeyCode::Key6 => Ok(Key::Row6),
+			VirtualKeyCode::Key7 => Ok(Key::Row7),
+			VirtualKeyCode::Key8 => Ok(Key::Row8),
+			VirtualKeyCode::Key9 => Ok(Key::Row9),
+			VirtualKeyCode::Key0 => Ok(Key::Row0),
+			VirtualKeyCode::Escape => Ok(Key::Escape),
+			_ => Err(()),
+		}
 	}
 }
