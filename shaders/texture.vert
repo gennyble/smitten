@@ -1,4 +1,4 @@
-#version 300 es
+#version 410
 layout (location = 0) in vec2 ModelPosition;
 layout (location = 1) in vec2 aTexCoord;
 

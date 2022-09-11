@@ -6,19 +6,20 @@ use std::{
 	cell::Cell,
 	collections::{HashMap, HashSet},
 	path::Path,
-	sync::RwLock,
 };
 
 use gl::{OpenGl, Texture, TextureColoring, Transform};
-use glow::HasContext;
 use glutin::{
 	dpi::PhysicalSize,
 	event::{ElementState, Event, VirtualKeyCode, WindowEvent},
 	event_loop::{ControlFlow, EventLoop},
-	platform::{run_return::EventLoopExtRunReturn, unix::WindowBuilderExtUnix},
+	platform::run_return::EventLoopExtRunReturn,
 	window::{Window, WindowBuilder},
 	ContextBuilder, ContextWrapper, PossiblyCurrent,
 };
+
+#[cfg(target_os = "linux")]
+use glutin::platform::unix::WindowBuilderExtUnix;
 
 pub use color::Color;
 pub use gl::SignedDistance;
@@ -60,10 +61,14 @@ impl Smitten {
 		// The wayland app id "pleasefloat" will make the window floating on
 		// sway if you have the following in your config:
 		// for_window [app_id="pleasefloat"] floating enable
+		#[cfg(target_os = "linux")]
 		let wb = WindowBuilder::new()
 			.with_title(title)
-			.with_app_id("pleasefloat".into())
-			.with_inner_size(size);
+			.with_inner_size(size)
+			.with_app_id("pleasefloat".into());
+
+		#[cfg(not(target_os = "linux"))]
+		let wb = WindowBuilder::new().with_title(title).with_inner_size(size);
 
 		let wc = ContextBuilder::new()
 			.with_vsync(true)
@@ -130,6 +135,10 @@ impl Smitten {
 		self.context.swap_buffers().unwrap()
 	}
 
+	pub fn clear_color<C: Into<Color>>(&mut self, color: C) {
+		self.gl.clear_color(color)
+	}
+
 	pub fn texture_coloring(&mut self, flag: bool) {
 		let value = if flag {
 			TextureColoring::MixTexture
@@ -157,6 +166,7 @@ impl Smitten {
 						key: input.virtual_keycode,
 					}),
 				},
+				WindowEvent::CloseRequested => panic!("TOOD: gen- Fix me later"),
 				_ => (),
 			},
 			Event::DeviceEvent { event, .. } => match event {
@@ -192,7 +202,7 @@ impl Smitten {
 				self.gl.set_texture_coloring_uniform(TextureColoring::Color);
 
 				if self.current_color.get() != c {
-					self.gl.set_color_uniform(Color::rgb(0.5, 0.1, 0.3));
+					self.gl.set_color_uniform(c);
 					self.current_color.set(c);
 				}
 			}

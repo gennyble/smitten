@@ -1,4 +1,4 @@
-use smitten::{self, Color, SignedDistance, Smitten, Vec2, VirtualKeyCode};
+use smitten::{self, Color, Key, SignedDistance, Smitten, Vec2};
 
 fn main() {
 	let mut smitty = Smitten::new((720, 480), "Square", 24);
@@ -8,7 +8,7 @@ fn main() {
 		let _events = smitty.events();
 
 		// Quit on escape
-		if smitty.is_key_down(VirtualKeyCode::Escape) {
+		if smitty.is_key_down(Key::Escape) {
 			break;
 		}
 

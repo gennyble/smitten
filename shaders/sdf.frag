@@ -1,4 +1,4 @@
-#version 300 es
+#version 410
 precision mediump float;
 
 in vec4 vertexColor;
