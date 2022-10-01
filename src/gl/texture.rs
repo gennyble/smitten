@@ -17,6 +17,15 @@ impl Texture {
 			.unwrap()
 			.to_rgba8();
 
+		Self::rgba8(
+			ogl,
+			img.width() as usize,
+			img.height() as usize,
+			img.to_vec().as_slice(),
+		)
+	}
+
+	pub fn rgba8(ogl: &OpenGl, width: usize, height: usize, buffer: &[u8]) -> Self {
 		let gl = ogl.gl();
 		let texture = unsafe {
 			let tex = gl.create_texture().unwrap();
@@ -25,12 +34,12 @@ impl Texture {
 				glow::TEXTURE_2D,
 				0,
 				glow::RGBA as i32,
-				img.width() as i32,
-				img.height() as i32,
+				width as i32,
+				height as i32,
 				0,
 				glow::RGBA,
 				glow::UNSIGNED_BYTE,
-				Some(img.to_vec().as_slice()),
+				Some(buffer),
 			);
 			gl.generate_mipmap(glow::TEXTURE_2D);
 

@@ -187,6 +187,11 @@ impl OpenGl {
 	}
 
 	pub fn draw_rectangle(&self, pos: Vec2, dim: Vec2) {
+		self.gen_draw_rectangle(pos, dim, &self.draw_rect);
+	}
+
+	//FIXME: wtf, lol
+	pub(crate) fn gen_draw_rectangle(&self, pos: Vec2, dim: Vec2, rect: &Rectangle) {
 		// The rectangle we use to draw, self.draw_rect, spans from (OpenGL Normalized Coordinates)
 		// -1,1 to 1,-1. That means any scale we appply via our little uniform will be 2x, as it
 		// multiplies both verticies away from the center.
@@ -204,7 +209,7 @@ impl OpenGl {
 			self.gl
 				.uniform_2_f32(uniform_scale.as_ref(), gl_dim.x, gl_dim.y);
 
-			self.draw_rect.bind(&self.gl);
+			rect.bind(&self.gl);
 			self.gl
 				.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_BYTE, 0);
 		}

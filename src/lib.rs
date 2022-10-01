@@ -1,6 +1,10 @@
 mod color;
 mod gl;
+mod smittenfont;
 mod vec2;
+
+use fontster::{Layout, LayoutSettings};
+use smittenfont::SmittenFont;
 
 use std::{
 	cell::Cell,
@@ -30,6 +34,9 @@ pub type PixelSize = PhysicalSize<u32>;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct TextureId(u32);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct FontId(u32);
 
 struct InputState {
 	down_keys: HashSet<Key>,
@@ -77,6 +84,9 @@ pub struct Smitten {
 	next_textureid: TextureId,
 	textures: HashMap<TextureId, Texture>,
 
+	next_fontid: FontId,
+	fonts: HashMap<FontId, SmittenFont>,
+
 	input_state: InputState,
 }
 
@@ -123,6 +133,8 @@ impl Smitten {
 			texture_coloring: TextureColoring::Texture,
 			next_textureid: TextureId(0),
 			textures: HashMap::new(),
+			next_fontid: FontId(0),
+			fonts: HashMap::new(),
 			input_state: InputState::new(),
 		}
 	}
@@ -228,6 +240,66 @@ impl Smitten {
 		id
 	}
 
+	pub fn make_font<P: AsRef<Path>>(&mut self, path: P) -> FontId {
+		self.gl.bind_program();
+		let font = SmittenFont::from_file(&self.gl, path);
+		let id = self.next_fontid;
+
+		self.fonts.insert(id, font);
+		self.next_fontid.0 += 1;
+
+		id
+	}
+
+	pub fn write<S: Into<String>, P: Into<Vec2>>(&self, font: FontId, text: S, pos: P) {
+		let string = text.into();
+		let mut layout: Layout<()> = Layout::new(LayoutSettings::default());
+
+		let font = self.fonts.get(&font).unwrap();
+		layout.append(
+			&[&font.font],
+			fontster::StyledText {
+				text: &string,
+				font_size: 32.0,
+				font_index: 0,
+				user: (),
+			},
+		);
+
+		// We're about to override this
+		self.current_texture.set(None);
+
+		self.gl.bind_program();
+		self.gl
+			.set_texture_coloring_uniform(TextureColoring::Texture);
+		self.gl.set_color_uniform(Color::RED);
+
+		unsafe { font.packed.texture.bind(&self.gl) };
+
+		let layout_dim = Vec2::new(layout.width(), layout.height());
+		let layout_half = layout_dim / 2;
+
+		let pos = pos.into();
+		for glyph in layout.glyphs() {
+			let glyph_pos = Vec2::new(-layout_half.x + glyph.x, layout_half.y + glyph.y);
+			let dim = Vec2::new(
+				self.gl.transform.pixels_to_mur(glyph.width as u32),
+				self.gl.transform.pixels_to_mur(glyph.height as u32),
+			);
+			let pos = Vec2::new(
+				glyph_pos.x / self.gl.transform.mur_size as f32,
+				(layout_dim.y - glyph_pos.y) / self.gl.transform.mur_size as f32,
+			) + pos.into();
+			//println!("{} {}", pos, dim);
+
+			self.gl.gen_draw_rectangle(
+				pos,
+				dim,
+				&font.packed.characters.get(&glyph.c).unwrap().rect,
+			)
+		}
+	}
+
 	// Draw a rectangle at `pos` murs (center) which is `dim` murs in dimension.
 	pub fn rect<P, D, R>(&self, pos: P, dim: D, draw: R)
 	where
@@ -267,7 +339,6 @@ impl Smitten {
 	{
 		let dim = dim.into();
 		let pos = pos.into().resolve(dim, &self.gl.transform);
-		println!("{} - {pos}", self.gl.transform.mur_half_dimensions);
 		self.rect(pos, dim, draw)
 	}
 
