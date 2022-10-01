@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{ops::Add, str::FromStr};
 
 use thiserror::Error;
 

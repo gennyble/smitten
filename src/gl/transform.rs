@@ -10,9 +10,9 @@ use crate::vec2::Vec2;
 pub struct Transform {
 	dpi_scale: f32,
 	screen_size: PhysicalSize<u32>,
-	screen_vec: Vec2,
-	mur_dimensions: Vec2,
-	mur_half_dimensions: Vec2,
+	pub screen_vec: Vec2,
+	pub mur_dimensions: Vec2,
+	pub mur_half_dimensions: Vec2,
 	pub mur_size: u32,
 }
 
@@ -36,9 +36,17 @@ impl Transform {
 		self.screen_vec = screen_size.into();
 	}
 
-	pub fn vec_to_opengl(&self, mut vec: Vec2) -> Vec2 {
+	pub fn vec_to_opengl(&self, vec: Vec2) -> Vec2 {
 		//vec.y *= -1.0;
 		(vec * self.mur_size) / (self.screen_vec / 2)
+	}
+
+	pub fn window_vec_to_murs(&self, mut vec: Vec2) -> Vec2 {
+		vec.y = self.screen_vec.y - vec.y;
+		vec = (vec - (self.screen_vec / 2)) / (self.screen_vec);
+		vec.x *= self.mur_dimensions.x;
+		vec.y *= self.mur_dimensions.y;
+		vec
 	}
 
 	pub fn vec_to_pixels(&self, vec: Vec2) -> Vec2 {

@@ -3,7 +3,7 @@ use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
 use glutin::dpi::PhysicalSize;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Vec2 {
 	pub x: f32,
 	pub y: f32,
@@ -12,7 +12,7 @@ pub struct Vec2 {
 impl Vec2 {
 	pub const ZERO: Vec2 = Vec2 { x: 0.0, y: 0.0 };
 
-	pub fn new(x: f32, y: f32) -> Self {
+	pub const fn new(x: f32, y: f32) -> Self {
 		Self { x, y }
 	}
 
@@ -31,6 +31,17 @@ impl Vec2 {
 		}
 	}
 
+	pub fn operation<F>(self, f: F) -> Self
+	where
+		F: Fn(f32) -> f32,
+	{
+		Self {
+			x: f(self.x),
+			y: f(self.y),
+		}
+	}
+
+	//FIXME: what should we call this?
 	pub fn normalize(&self) -> Self {
 		let max = self.x.max(self.y);
 
@@ -40,8 +51,39 @@ impl Vec2 {
 		}
 	}
 
+	//TODO: fix code
+	pub fn normalize_correct(&self) -> Self {
+		let length = ((self.x * self.x) + (self.y * self.y)).sqrt();
+
+		if length == 0.0 {
+			return Vec2::ZERO;
+		}
+
+		Self {
+			x: self.x / length,
+			y: self.y / length,
+		}
+	}
+
 	pub fn distance_with(&self, other: Vec2) -> f32 {
 		((other.x - self.x) * (other.x - self.x) + (other.y - self.y) * (other.y - self.y)).sqrt()
+	}
+
+	pub fn length(&self) -> f32 {
+		((self.x * self.x) + (self.y * self.y)).sqrt()
+	}
+
+	pub fn dot(&self, other: Vec2) -> f32 {
+		(self.x * other.x) + (self.y * other.y)
+	}
+
+	/// Angle of this vector with (0, 1)
+	pub fn angle(&self) -> f32 {
+		if self.x < 0.0 {
+			360.0 - self.dot(Vec2::new(0.0, 1.0)).acos().to_degrees()
+		} else {
+			self.dot(Vec2::new(0.0, 1.0)).acos().to_degrees()
+		}
 	}
 }
 

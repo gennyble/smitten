@@ -23,12 +23,45 @@ use glutin::platform::unix::WindowBuilderExtUnix;
 
 pub use color::Color;
 pub use gl::SignedDistance;
+pub use glutin::event::MouseButton;
 pub use vec2::Vec2;
 
 pub type PixelSize = PhysicalSize<u32>;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct TextureId(u32);
+
+struct InputState {
+	down_keys: HashSet<Key>,
+	down_scancode: HashSet<u32>,
+	mouse_position: Vec2,
+}
+
+impl InputState {
+	pub fn new() -> Self {
+		Self {
+			down_keys: HashSet::new(),
+			down_scancode: HashSet::new(),
+			mouse_position: Vec2::ZERO,
+		}
+	}
+
+	pub fn set_keycode_state(&mut self, scancode: u32, key: Option<VirtualKeyCode>, down: bool) {
+		if down {
+			self.down_scancode.insert(scancode);
+
+			if let Some(Ok(key)) = key.map(|v| v.try_into()) {
+				self.down_keys.insert(key);
+			}
+		} else {
+			self.down_scancode.remove(&scancode);
+
+			if let Some(Ok(key)) = key.map(|v| v.try_into()) {
+				self.down_keys.remove(&key);
+			}
+		}
+	}
+}
 
 //TODO: Custom drop that frees resources
 
@@ -44,8 +77,7 @@ pub struct Smitten {
 	next_textureid: TextureId,
 	textures: HashMap<TextureId, Texture>,
 
-	down_keys: HashSet<Key>,
-	down_scancode: HashSet<u32>,
+	input_state: InputState,
 }
 
 impl Smitten {
@@ -91,15 +123,15 @@ impl Smitten {
 			texture_coloring: TextureColoring::Texture,
 			next_textureid: TextureId(0),
 			textures: HashMap::new(),
-			down_keys: HashSet::new(),
-			down_scancode: HashSet::new(),
+			input_state: InputState::new(),
 		}
 	}
 
 	pub fn events(&mut self) -> Vec<SmittenEvent> {
 		let mut events = vec![];
-		self.event_loop
-			.run_return(|event, _, flow| Self::add_event(&mut events, event, flow));
+		self.event_loop.run_return(|event, _, flow| {
+			Self::add_event(&mut self.input_state, &mut events, event, flow);
+		});
 
 		for event in &events {
 			match event {
@@ -107,20 +139,7 @@ impl Smitten {
 					self.context.resize(*size);
 					self.gl.resized(size.width, size.height)
 				}
-				SmittenEvent::Keydown { scancode, key } => {
-					self.down_scancode.insert(*scancode);
-
-					if let Some(Ok(key)) = key.map(|v| v.try_into()) {
-						self.down_keys.insert(key);
-					}
-				}
-				SmittenEvent::Keyup { scancode, key } => {
-					self.down_scancode.remove(scancode);
-
-					if let Some(Ok(key)) = key.map(|v| v.try_into()) {
-						self.down_keys.remove(&key);
-					}
-				}
+				_ => (),
 			}
 		}
 
@@ -150,23 +169,43 @@ impl Smitten {
 		self.gl.set_texture_coloring_uniform(value);
 	}
 
-	fn add_event(events: &mut Vec<SmittenEvent>, event: Event<()>, flow: &mut ControlFlow) {
+	fn add_event(
+		state: &mut InputState,
+		events: &mut Vec<SmittenEvent>,
+		event: Event<()>,
+		flow: &mut ControlFlow,
+	) {
 		*flow = ControlFlow::Wait;
 
 		match event {
 			Event::WindowEvent { event, .. } => match event {
 				WindowEvent::Resized(phys) => events.push(SmittenEvent::WindowResized(phys)),
 				WindowEvent::KeyboardInput { input, .. } => match input.state {
-					ElementState::Pressed => events.push(SmittenEvent::Keydown {
-						scancode: input.scancode,
-						key: input.virtual_keycode,
-					}),
-					ElementState::Released => events.push(SmittenEvent::Keyup {
-						scancode: input.scancode,
-						key: input.virtual_keycode,
-					}),
+					ElementState::Pressed => {
+						state.set_keycode_state(input.scancode, input.virtual_keycode, true);
+
+						events.push(SmittenEvent::Keydown {
+							scancode: input.scancode,
+							key: input.virtual_keycode.map(|v| v.try_into().ok()).flatten(),
+						});
+					}
+					ElementState::Released => {
+						state.set_keycode_state(input.scancode, input.virtual_keycode, false);
+
+						events.push(SmittenEvent::Keyup {
+							scancode: input.scancode,
+							key: input.virtual_keycode.map(|v| v.try_into().ok()).flatten(),
+						})
+					}
 				},
 				WindowEvent::CloseRequested => panic!("TOOD: gen- Fix me later"),
+				WindowEvent::MouseInput { state, button, .. } => match state {
+					ElementState::Pressed => events.push(SmittenEvent::MouseDown { button }),
+					ElementState::Released => events.push(SmittenEvent::MouseUp { button }),
+				},
+				WindowEvent::CursorMoved { position, .. } => {
+					state.mouse_position = Vec2::new(position.x as f32, position.y as f32)
+				}
 				_ => (),
 			},
 			Event::DeviceEvent { event, .. } => match event {
@@ -220,6 +259,18 @@ impl Smitten {
 		}
 	}
 
+	pub fn anchored_rect<A, D, R>(&self, pos: A, dim: D, draw: R)
+	where
+		A: Into<Anchored>,
+		D: Into<Vec2>,
+		R: Into<Draw>,
+	{
+		let dim = dim.into();
+		let pos = pos.into().resolve(dim, &self.gl.transform);
+		println!("{} - {pos}", self.gl.transform.mur_half_dimensions);
+		self.rect(pos, dim, draw)
+	}
+
 	pub fn sdf(&self, sdf: SignedDistance) {
 		self.gl.draw_sdf(sdf)
 	}
@@ -236,24 +287,37 @@ impl Smitten {
 	}
 
 	pub fn is_key_down(&self, key: Key) -> bool {
-		self.down_keys.contains(&key)
+		self.input_state.down_keys.contains(&key)
 	}
 
 	pub fn is_scancode_down(&self, scancode: u32) -> bool {
-		self.down_scancode.contains(&scancode)
+		self.input_state.down_scancode.contains(&scancode)
+	}
+
+	pub fn mouse_position(&self) -> Vec2 {
+		self.gl
+			.transform
+			.window_vec_to_murs(self.input_state.mouse_position)
+	}
+
+	/// Returns the mouse position as pixels in reference to the center of the window
+	pub fn mouse_position_absolute(&self) -> Vec2 {
+		let half_dim = self.gl.transform.screen_vec / 2;
+
+		// Mouse is weid-coordinates, fix it
+		let mut mouse = self.input_state.mouse_position;
+		mouse.y = self.gl.transform.screen_vec.y - mouse.y;
+
+		mouse - half_dim
 	}
 }
 
 pub enum SmittenEvent {
 	WindowResized(PixelSize),
-	Keydown {
-		scancode: u32,
-		key: Option<VirtualKeyCode>,
-	},
-	Keyup {
-		scancode: u32,
-		key: Option<VirtualKeyCode>,
-	},
+	Keydown { scancode: u32, key: Option<Key> },
+	Keyup { scancode: u32, key: Option<Key> },
+	MouseDown { button: MouseButton },
+	MouseUp { button: MouseButton },
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -272,6 +336,104 @@ impl From<TextureId> for Draw {
 	fn from(tid: TextureId) -> Draw {
 		Draw::Texture(tid)
 	}
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Anchored {
+	Vertical {
+		vert: VerticalAnchor,
+		hori: f32,
+	},
+	Horizontal {
+		vert: f32,
+		hori: HorizontalAnchor,
+	},
+	Both {
+		vert: VerticalAnchor,
+		hori: HorizontalAnchor,
+	},
+	Neither(Vec2),
+}
+
+impl Anchored {
+	pub fn resolve(&self, dim: Vec2, trans: &Transform) -> Vec2 {
+		let top = trans.mur_half_dimensions.y - (dim.y / 2.0);
+		let btm = -trans.mur_half_dimensions.y + (dim.y / 2.0);
+		let lft = -trans.mur_half_dimensions.x + (dim.x / 2.0);
+		let rht = trans.mur_half_dimensions.x - (dim.x / 2.0);
+
+		let v = |v: &VerticalAnchor| match v {
+			VerticalAnchor::Top => top,
+			VerticalAnchor::Center => 0.0,
+			VerticalAnchor::Bottom => btm,
+		};
+
+		let h = |h: &HorizontalAnchor| match h {
+			HorizontalAnchor::Left => lft,
+			HorizontalAnchor::Center => 0.0,
+			HorizontalAnchor::Right => rht,
+		};
+
+		match self {
+			Anchored::Vertical { vert, hori } => Vec2::new(*hori, v(vert)),
+			Anchored::Horizontal { vert, hori } => Vec2::new(h(hori), *vert),
+			Anchored::Both { vert, hori } => Vec2::new(h(hori), v(vert)),
+			Anchored::Neither(v) => v.clone(),
+		}
+	}
+}
+
+impl From<(f32, VerticalAnchor)> for Anchored {
+	fn from(t: (f32, VerticalAnchor)) -> Self {
+		Self::Vertical {
+			vert: t.1,
+			hori: t.0,
+		}
+	}
+}
+
+impl From<(HorizontalAnchor, f32)> for Anchored {
+	fn from(t: (HorizontalAnchor, f32)) -> Self {
+		Self::Horizontal {
+			vert: t.1,
+			hori: t.0,
+		}
+	}
+}
+
+impl From<(HorizontalAnchor, VerticalAnchor)> for Anchored {
+	fn from(t: (HorizontalAnchor, VerticalAnchor)) -> Self {
+		Self::Both {
+			vert: t.1,
+			hori: t.0,
+		}
+	}
+}
+
+impl From<(f32, f32)> for Anchored {
+	fn from(t: (f32, f32)) -> Self {
+		Self::Neither(t.into())
+	}
+}
+
+impl From<Vec2> for Anchored {
+	fn from(t: Vec2) -> Self {
+		Self::Neither(t)
+	}
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum VerticalAnchor {
+	Top,
+	Bottom,
+	Center,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum HorizontalAnchor {
+	Left,
+	Center,
+	Right,
 }
 
 #[rustfmt::skip]
