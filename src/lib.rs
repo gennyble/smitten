@@ -258,7 +258,7 @@ impl Smitten {
 		color: Color,
 		scale: f32,
 	) {
-		let size = 64.0;
+		let size = 64.0 * scale;
 		let string = text.into();
 		let font = self.fonts.get(&font).unwrap();
 
@@ -544,7 +544,7 @@ pub enum HorizontalAnchor {
 pub enum Key {
 	A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 	Row1, Row2, Row3, Row4, Row5, Row6, Row7, Row8, Row9, Row0,
-	Escape,
+	Escape, Space
 }
 
 impl From<Key> for VirtualKeyCode {
@@ -587,6 +587,7 @@ impl From<Key> for VirtualKeyCode {
 			Key::Row9 => VirtualKeyCode::Key9,
 			Key::Row0 => VirtualKeyCode::Key0,
 			Key::Escape => VirtualKeyCode::Escape,
+			Key::Space => VirtualKeyCode::Space,
 		}
 	}
 }
@@ -633,6 +634,7 @@ impl TryFrom<VirtualKeyCode> for Key {
 			VirtualKeyCode::Key9 => Ok(Key::Row9),
 			VirtualKeyCode::Key0 => Ok(Key::Row0),
 			VirtualKeyCode::Escape => Ok(Key::Escape),
+			VirtualKeyCode::Space => Ok(Key::Space),
 			_ => Err(()),
 		}
 	}
