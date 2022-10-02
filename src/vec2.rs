@@ -41,6 +41,16 @@ impl Vec2 {
 		}
 	}
 
+	pub fn invert(self, x: bool, y: bool) -> Self {
+		let x = if x { -1.0 } else { 1.0 };
+		let y = if y { -1.0 } else { 1.0 };
+
+		Self {
+			x: self.x * x,
+			y: self.y * y,
+		}
+	}
+
 	//FIXME: what should we call this?
 	pub fn normalize(&self) -> Self {
 		let max = self.x.max(self.y);
