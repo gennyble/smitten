@@ -27,11 +27,39 @@ impl Color {
 		Self { r, g, b, a: 1.0 }
 	}
 
+	pub const fn rgb8(r: u8, g: u8, b: u8) -> Self {
+		Self {
+			r: r as f32 / 255.0,
+			g: g as f32 / 255.0,
+			b: b as f32 / 255.0,
+			a: 1.0,
+		}
+	}
+
 	pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
 		Self { r, g, b, a }
 	}
 
+	pub const fn rgba8(r: u8, g: u8, b: u8, a: u8) -> Self {
+		Self {
+			r: r as f32 / 255.0,
+			g: g as f32 / 255.0,
+			b: b as f32 / 255.0,
+			a: a as f32 / 255.0,
+		}
+	}
+
 	pub const fn grey(v: f32) -> Self {
+		Self {
+			r: v,
+			g: v,
+			b: v,
+			a: v,
+		}
+	}
+
+	pub const fn grey8(v: u8) -> Self {
+		let v = v as f32 / 255.0;
 		Self {
 			r: v,
 			g: v,
