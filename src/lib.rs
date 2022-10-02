@@ -3,7 +3,6 @@ mod gl;
 mod smittenfont;
 mod vec2;
 
-use fontster::{Layout, LayoutSettings};
 use smittenfont::SmittenFont;
 
 use std::{
@@ -251,53 +250,86 @@ impl Smitten {
 		id
 	}
 
-	pub fn write<S: Into<String>, P: Into<Vec2>>(&self, font: FontId, text: S, pos: P) {
+	pub fn write<S: Into<String>, P: Into<Anchored>>(
+		&self,
+		font: FontId,
+		text: S,
+		pos: P,
+		color: Color,
+		scale: f32,
+	) {
+		let size = 64.0;
 		let string = text.into();
-		let mut layout: Layout<()> = Layout::new(LayoutSettings::default());
-
 		let font = self.fonts.get(&font).unwrap();
-		layout.append(
-			&[&font.font],
-			fontster::StyledText {
-				text: &string,
-				font_size: 32.0,
-				font_index: 0,
-				user: (),
-			},
-		);
 
 		// We're about to override this
 		self.current_texture.set(None);
 
 		self.gl.bind_program();
 		self.gl
-			.set_texture_coloring_uniform(TextureColoring::Texture);
-		self.gl.set_color_uniform(Color::RED);
+			.set_texture_coloring_uniform(TextureColoring::MixTexture);
+		self.gl.set_color_uniform(color);
 
 		unsafe { font.packed.texture.bind(&self.gl) };
 
-		let layout_dim = Vec2::new(layout.width(), layout.height());
-		let layout_half = layout_dim / 2;
+		// New layout code
+		let mut ascent = 0.0f32;
+		let mut descent = 0.0f32;
+		let mut off_x = 0.0f32;
 
-		let pos = pos.into();
-		for glyph in layout.glyphs() {
-			let glyph_pos = Vec2::new(-layout_half.x + glyph.x, layout_half.y + glyph.y);
-			let dim = Vec2::new(
-				self.gl.transform.pixels_to_mur(glyph.width as u32),
-				self.gl.transform.pixels_to_mur(glyph.height as u32),
-			);
-			let pos = Vec2::new(
-				glyph_pos.x / self.gl.transform.mur_size as f32,
-				(layout_dim.y - glyph_pos.y) / self.gl.transform.mur_size as f32,
-			) + pos.into();
-			//println!("{} {}", pos, dim);
+		for ch in string.chars() {
+			let metrics = font.font.metrics(ch, size);
 
-			self.gl.gen_draw_rectangle(
-				pos,
-				dim,
-				&font.packed.characters.get(&glyph.c).unwrap().rect,
+			// ascent is the bit of the glyph above the baseline. ymin is
+			// negative if there is descent.
+			ascent = ascent.max(metrics.height as f32 + metrics.ymin as f32);
+			descent = descent.min(metrics.ymin as f32);
+
+			off_x += metrics.advance_width;
+		}
+
+		let mur_size = self.gl.transform.mur_size;
+		let mur = |f: f32| -> f32 { f / mur_size as f32 };
+		let unmur = |f: f32| -> f32 { f * mur_size as f32 };
+
+		let width = off_x;
+		let height = ascent + descent.abs();
+		let text_dim = Vec2::new(width, height);
+		let text_hdim = text_dim / 2;
+		let baseline = descent.abs();
+
+		let pos = pos
+			.into()
+			.resolve(text_dim.operation(mur), &self.gl.transform);
+		let pos = pos.operation(unmur);
+
+		let mut offset_x = 0.0;
+		for ch in string.chars() {
+			let metrics = font.font.metrics(ch, size);
+
+			// Dimensioning
+			let dim = Vec2::new(metrics.width as f32, metrics.height as f32);
+
+			let gl_dim = self.gl.transform.pixel_vec_to_opengl(dim);
+
+			// Positioning
+			let x = (metrics.width as f32 / 2.0) + offset_x + metrics.xmin as f32;
+			let y = (metrics.height as f32 / 2.0) + baseline + metrics.ymin as f32;
+
+			offset_x += metrics.advance_width;
+
+			let glyph_pos = Vec2::new(x - text_hdim.x, y - text_hdim.y);
+
+			let gl_pos = self.gl.transform.pixel_vec_to_opengl(glyph_pos + pos);
+
+			self.gl.gen_draw_rectangle_raw_coords(
+				gl_pos,
+				gl_dim,
+				&font.packed.characters.get(&ch).unwrap().rect,
 			)
 		}
+
+		// End new layour code
 	}
 
 	// Draw a rectangle at `pos` murs (center) which is `dim` murs in dimension.
@@ -434,15 +466,15 @@ impl Anchored {
 		let rht = trans.mur_half_dimensions.x - (dim.x / 2.0);
 
 		let v = |v: &VerticalAnchor| match v {
-			VerticalAnchor::Top => top,
-			VerticalAnchor::Center => 0.0,
-			VerticalAnchor::Bottom => btm,
+			VerticalAnchor::Top(off) => top + *off,
+			VerticalAnchor::Center(off) => *off,
+			VerticalAnchor::Bottom(off) => btm + *off,
 		};
 
 		let h = |h: &HorizontalAnchor| match h {
-			HorizontalAnchor::Left => lft,
-			HorizontalAnchor::Center => 0.0,
-			HorizontalAnchor::Right => rht,
+			HorizontalAnchor::Left(off) => lft + *off,
+			HorizontalAnchor::Center(off) => *off,
+			HorizontalAnchor::Right(off) => rht + *off,
 		};
 
 		match self {
@@ -495,16 +527,16 @@ impl From<Vec2> for Anchored {
 
 #[derive(Copy, Clone, Debug)]
 pub enum VerticalAnchor {
-	Top,
-	Bottom,
-	Center,
+	Top(f32),
+	Bottom(f32),
+	Center(f32),
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum HorizontalAnchor {
-	Left,
-	Center,
-	Right,
+	Left(f32),
+	Center(f32),
+	Right(f32),
 }
 
 #[rustfmt::skip]

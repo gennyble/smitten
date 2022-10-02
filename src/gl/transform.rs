@@ -41,6 +41,10 @@ impl Transform {
 		(vec * self.mur_size) / (self.screen_vec / 2)
 	}
 
+	pub fn pixel_vec_to_opengl(&self, vec: Vec2) -> Vec2 {
+		vec / (self.screen_vec / 2)
+	}
+
 	pub fn window_vec_to_murs(&self, mut vec: Vec2) -> Vec2 {
 		vec.y = self.screen_vec.y - vec.y;
 		vec = (vec - (self.screen_vec / 2)) / (self.screen_vec);

@@ -215,6 +215,31 @@ impl OpenGl {
 		}
 	}
 
+	//FIXME: god damnit
+	pub(crate) fn gen_draw_rectangle_raw_coords(&self, pos: Vec2, dim: Vec2, rect: &Rectangle) {
+		// The rectangle we use to draw, self.draw_rect, spans from (OpenGL Normalized Coordinates)
+		// -1,1 to 1,-1. That means any scale we appply via our little uniform will be 2x, as it
+		// multiplies both verticies away from the center.
+
+		let gl_pos = pos;
+		let gl_dim = dim / 2;
+
+		unsafe {
+			self.bind_program();
+
+			let uniform_position = self.gl.get_uniform_location(self.program, "WorldPosition");
+			let uniform_scale = self.gl.get_uniform_location(self.program, "Scale");
+			self.gl
+				.uniform_2_f32(uniform_position.as_ref(), gl_pos.x, gl_pos.y);
+			self.gl
+				.uniform_2_f32(uniform_scale.as_ref(), gl_dim.x, gl_dim.y);
+
+			rect.bind(&self.gl);
+			self.gl
+				.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_BYTE, 0);
+		}
+	}
+
 	pub fn draw_sdf(&self, sdf: SignedDistance) {
 		self.bind_sdf();
 
@@ -267,6 +292,29 @@ impl OpenGl {
 				);
 				self.gl
 					.uniform_4_f32(uniform_parameters.as_ref(), thickness as f32, 0.0, 0.0, 0.0);
+				self.gl
+					.uniform_1_i32(uniform_drawmethod.as_ref(), sdf.draw_method_index());
+			},
+			SignedDistance::Octogon {
+				center,
+				radius,
+				color,
+			} => unsafe {
+				let uniform_color = self.gl.get_uniform_location(self.sdf, "Color");
+				let uniform_pointpair = self.gl.get_uniform_location(self.sdf, "PointPair");
+				let uniform_drawmethod = self.gl.get_uniform_location(self.sdf, "DrawMethod");
+
+				let pixel_center = self.transform.vec_to_pixels(center);
+
+				self.gl
+					.uniform_4_f32(uniform_color.as_ref(), color.r, color.g, color.b, color.a);
+				self.gl.uniform_4_f32(
+					uniform_pointpair.as_ref(),
+					pixel_center.x,
+					pixel_center.y,
+					radius as f32,
+					0.0,
+				);
 				self.gl
 					.uniform_1_i32(uniform_drawmethod.as_ref(), sdf.draw_method_index());
 			},
@@ -336,6 +384,11 @@ pub enum SignedDistance {
 		thickness: u32,
 		color: Color,
 	},
+	Octogon {
+		center: Vec2,
+		radius: u32,
+		color: Color,
+	},
 }
 
 impl SignedDistance {
@@ -343,6 +396,7 @@ impl SignedDistance {
 		match self {
 			SignedDistance::Circle { .. } => 1,
 			SignedDistance::LineSegment { .. } => 2,
+			SignedDistance::Octogon { .. } => 3,
 		}
 	}
 
@@ -388,6 +442,9 @@ impl SignedDistance {
 						) * 3,
 				)
 			}
+			SignedDistance::Octogon { center, radius, .. } => {
+				(*center, Vec2::new(*radius as f32, *radius as f32) * 2)
+			}
 		}
 	}
 
@@ -411,6 +468,18 @@ impl SignedDistance {
 		C: Into<Color>,
 	{
 		SignedDistance::Circle {
+			center: center.into(),
+			radius,
+			color: color.into(),
+		}
+	}
+
+	pub fn octogon<P, C>(center: P, radius: u32, color: C) -> SignedDistance
+	where
+		P: Into<Vec2>,
+		C: Into<Color>,
+	{
+		SignedDistance::Octogon {
 			center: center.into(),
 			radius,
 			color: color.into(),

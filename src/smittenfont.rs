@@ -1,6 +1,11 @@
-use std::{collections::HashMap, fs::File, io::BufWriter, path::Path};
+use std::{
+	collections::HashMap,
+	fs::File,
+	io::{BufWriter, Read},
+	path::Path,
+};
 
-use fontster::Font;
+use fontdue::Font;
 use image::ImageBuffer;
 
 use crate::{
@@ -15,7 +20,7 @@ pub struct SmittenFont {
 
 impl SmittenFont {
 	pub fn from_file<P: AsRef<Path>>(gl: &OpenGl, path: P) -> Self {
-		let font = fontster::parse_font_file(path).unwrap();
+		let font = parse_font_file(path);
 		let packed = layout_texture(&font, gl);
 
 		Self { font, packed }
@@ -23,7 +28,7 @@ impl SmittenFont {
 }
 
 fn layout_texture(font: &Font, gl: &OpenGl) -> PackedFont {
-	let size = 32.0f32;
+	let size = 64.0f32;
 
 	let width = (size * 17.0).ceil() as usize;
 	let height = (size * 7.0).ceil() as usize;
@@ -114,4 +119,16 @@ pub struct PackedCharacter {
 	texture_dimensions: Vec2,
 
 	pub rect: Rectangle,
+}
+
+pub fn parse_font_file<P: AsRef<Path>>(path: P) -> Font {
+	let mut file = File::open(path.as_ref()).unwrap();
+	let mut buffer = vec![];
+	file.read_to_end(&mut buffer).unwrap();
+
+	parse_font(&buffer)
+}
+
+pub fn parse_font(data: &[u8]) -> Font {
+	Font::from_bytes(data, Default::default()).unwrap()
 }

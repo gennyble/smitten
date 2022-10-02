@@ -15,6 +15,8 @@ void main() {
 
 		if (dist <= 0.0) {
 			FragColor = vertexColor;
+		} else if (dist <= 2.0) {
+			FragColor = vec4(0.0, 0.0, 0.0, 1.0);
 		} else {
 			FragColor = vec4(1.0, 0.0, 0.0, 0.0);
 		}
@@ -32,6 +34,21 @@ void main() {
 			FragColor = vertexColor;
 		} else {
 			FragColor = vec4(0.0, 1.0, 0.0, 0.0);
+		}
+	} else if (vertexDrawMethod == 3) {
+		const vec3 k = vec3(-0.9238795325, 0.3826834323, 0.4142135623 );
+		float r = 5;
+		vec2 p = vertexPointPair.xy;
+		p = abs(p);
+		p -= 2.0*min(dot(vec2( k.x,k.y),p),0.0)*vec2( k.x,k.y);
+		p -= 2.0*min(dot(vec2(-k.x,k.y),p),0.0)*vec2(-k.x,k.y);
+		p -= vec2(clamp(p.x, -k.z*r, k.z*r), r);
+		float dist = length(p)*sign(p.y);
+
+		if (dist <= 0.0) {
+			FragColor = vertexColor;
+		} else {
+			FragColor = vec4(0.0, 0.0, 0.0, 0.0);
 		}
 	} else {
 		FragColor = vec4(0.0, 0.0, 1.0, 1.0);

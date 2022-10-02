@@ -10,11 +10,9 @@ glutin = "0.28"
 glow = "0.11"
 thiserror = "1.0"
 png = "0.17.6"
+fontdue = "0.7.2"
 
 [dependencies.image]
 version = "0.23"
 features = ["png"]
 default-features = false
-
-[dependencies.fontster]
-path = "../fontster"
