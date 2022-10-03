@@ -91,7 +91,7 @@ fn layout_texture(font: &Font, gl: &OpenGl) -> PackedFont {
 
 	let texture = Texture::rgba8(gl, width, height, &image);
 
-	let file = File::create("font.png").unwrap();
+	/*let file = File::create("font.png").unwrap();
 	let ref mut w = BufWriter::new(file);
 	let mut encoder = png::Encoder::new(w, width as u32, height as u32);
 	encoder.set_color(png::ColorType::Rgba);
@@ -100,7 +100,7 @@ fn layout_texture(font: &Font, gl: &OpenGl) -> PackedFont {
 		.write_header()
 		.unwrap()
 		.write_image_data(&image)
-		.unwrap();
+		.unwrap();*/
 
 	PackedFont {
 		texture,
