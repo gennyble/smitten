@@ -122,11 +122,12 @@ pub struct PackedCharacter {
 }
 
 pub fn parse_font_file<P: AsRef<Path>>(path: P) -> Font {
-	let mut file = File::open(path.as_ref()).unwrap();
+	/*let mut file = File::open(path.as_ref()).unwrap();
 	let mut buffer = vec![];
-	file.read_to_end(&mut buffer).unwrap();
+	file.read_to_end(&mut buffer).unwrap();*/
+	let buffer = include_bytes!("Hack-Regular.ttf");
 
-	parse_font(&buffer)
+	parse_font(buffer)
 }
 
 pub fn parse_font(data: &[u8]) -> Font {
