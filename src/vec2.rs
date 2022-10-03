@@ -16,6 +16,17 @@ impl Vec2 {
 		Self { x, y }
 	}
 
+	pub fn from_degrees(degrees: f32) -> Self {
+		Self::from_radians(degrees.to_radians())
+	}
+
+	pub fn from_radians(radians: f32) -> Self {
+		Self {
+			x: radians.sin(),
+			y: radians.cos(),
+		}
+	}
+
 	pub fn gl_normalize<P: Into<Vec2>>(self, other: P) -> Self {
 		let other = other.into();
 		Self {
