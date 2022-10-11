@@ -19,7 +19,7 @@ use crate::{Color, Vec2};
 
 pub struct OpenGl {
     gl: Rc<glow::Context>,
-    transform: Transform,
+    pub transform: Transform,
     program: Program,
     sdf: Program,
     clear_color: Color,
