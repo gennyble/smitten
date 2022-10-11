@@ -32,11 +32,15 @@ impl Vec2 {
 	}
 
 	pub fn normalize(&self) -> Self {
-		let max = self.x.max(self.y);
+		let length = ((self.x * self.x) + (self.y * self.y)).sqrt();
+
+		if length == 0.0 {
+			return Vec2::ZERO;
+		}
 
 		Self {
-			x: self.x / max,
-			y: self.y / max,
+			x: self.x / length,
+			y: self.y / length,
 		}
 	}
 

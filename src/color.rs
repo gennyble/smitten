@@ -36,7 +36,7 @@ impl Color {
 			r: v,
 			g: v,
 			b: v,
-			a: v,
+			a: 1.0,
 		}
 	}
 }
