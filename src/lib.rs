@@ -240,6 +240,16 @@ impl Smitten {
 		id
 	}
 
+	pub fn make_texture_rgba8(&mut self, width: usize, height: usize, buffer: &[u8]) -> TextureId {
+		let tex = Texture::rgba8(&self.gl, width, height, buffer);
+		let id = self.next_textureid;
+
+		self.textures.insert(id, tex);
+		self.next_textureid.0 += 1;
+
+		id
+	}
+
 	pub fn make_font<P: AsRef<Path>>(&mut self, path: P) -> FontId {
 		self.gl.bind_program();
 		let font = SmittenFont::from_file(&self.gl, path);
